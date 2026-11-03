@@ -72,7 +72,7 @@
   sb.auth.getSession().then(({ data }) => { session = data.session; showSignedIn(); });
 
   // ---------- Tabs ----------
-  const TABS = { overview: loadOverview, orders: loadOrders, routes: loadRoutes, warehouses: loadWarehouses, products: loadProducts, zip: loadZip, ask: loadAsk };
+  const TABS = { overview: loadOverview, orders: loadOrders, routes: loadRoutes, warehouses: loadWarehouses, products: loadProducts, zip: loadZip, ask: loadAsk, toorder: loadToOrder, auto: loadAuto };
   function openTab(name, force) {
     if (!TABS[name]) name = "overview";
     document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
@@ -345,6 +345,7 @@
   const chat = [];
   const SUGGEST = [
     "Which orders need attention today?",
+    "Set up my warehouses and SKU rules for CJ (Cranbury, NJ 08512) and CROV.",
     "Which CROV orders do I still need to place by hand?",
     "Where should my next local hub be?",
     "Write a short product description for a modern gray sofa.",
@@ -407,9 +408,31 @@
       return h("div", { class: m.role === "user" ? "card ask-q" : "card ask-a" },
         h("p", { class: "muted small", style: "margin:0 0 4px" }, m.role === "user" ? "You" : "✨ Claude"),
         m.photo ? h("img", { src: m.photo, alt: "Your photo", class: "ask-thumb" }) : null,
-        h("div", { style: "white-space:pre-wrap" }, m.content));
+        h("div", { style: "white-space:pre-wrap" }, m.content),
+        (m.actions || []).map((a) => actionCard(a, m)));
     }
     function draw() { log.replaceChildren(...chat.map(bubble)); }
+    function actionCard(a, m) {
+      const done = a.state === "done", skipped = a.state === "skipped";
+      const box = h("div", { class: "action" + (done ? " done" : "") },
+        h("p", { style: "margin:0 0 8px;font-weight:600" }, done ? "✅ " : skipped ? "⏭️ " : "👉 ", a.summary),
+        a.type === "create_product" && a.input.description ? h("p", { class: "muted small", style: "margin:0 0 8px" }, a.input.description) : null,
+        a.result ? h("p", { class: a.error ? "error" : "small", style: "margin:0 0 8px" }, a.result) : null,
+        !done && !skipped ? h("div", { class: "links" },
+          h("button", { type: "button", onclick: async (e) => {
+            e.target.disabled = true;
+            try {
+              const photoOk = a.type === "create_product" && a.input.use_photo && m.sentPhoto;
+              const r = await api("/api/ecom/action", { body: { type: a.type, input: a.input,
+                image: photoOk ? m.sentPhoto.data : "", image_type: photoOk ? m.sentPhoto.type : "" } });
+              a.state = "done"; a.result = r.message || "Done."; a.error = false;
+              ["overview", "orders", "routes", "warehouses", "products", "toorder"].forEach((k) => delete loaded[k]);
+            } catch (err) { a.result = err.message; a.error = true; }
+            draw();
+          } }, "Confirm"),
+          h("button", { type: "button", class: "ghost", onclick: () => { a.state = "skipped"; draw(); } }, "Skip")) : null);
+      return box;
+    }
     async function ask(q) {
       q = (q || "").trim();
       if (!q && !photo) return;
@@ -421,7 +444,7 @@
       log.append(wait);
       try {
         const d = await api("/api/ecom/ask", { body: { question: q, history, image: sent ? sent.data : "", image_type: sent ? sent.type : "" } });
-        chat.push({ role: "assistant", content: d.answer });
+        chat.push({ role: "assistant", content: d.answer, actions: (d.actions || []).map((a) => ({ ...a, state: "new" })), photo: null, sentPhoto: sent });
       } catch (err) {
         chat.pop(); flash(err.message, true); input.value = q; photo = sent; showPhoto();
       }
@@ -430,7 +453,7 @@
     }
     const form = h("form", { class: "card", onsubmit: (e) => { e.preventDefault(); ask(input.value); } },
       h("h2", {}, "Ask Claude"),
-      h("p", { class: "muted small" }, "Snap a product, label, packing slip or invoice, or type a question. Claude reads your orders, warehouses and products (no customer names, addresses or phone numbers). It can't change anything; it tells you where to do it."),
+      h("p", { class: "muted small" }, "Snap a product, label, packing slip or invoice, or type a question. Claude reads your orders, warehouses and products (no customer names, addresses or phone numbers). When it can set something up for you, it shows a Confirm button. Nothing changes until you tap it."),
       h("div", { class: "links" },
         h("button", { type: "button", class: "cam-btn", onclick: () => camInput.click() }, "📷 Take a photo"),
         h("button", { type: "button", class: "ghost", onclick: () => libInput.click() }, "🖼️ Choose a photo")),
@@ -439,5 +462,86 @@
       h("div", { class: "links" }, SUGGEST.map((t) => h("button", { type: "button", class: "ghost", style: "font-weight:500", onclick: () => ask(t) }, t))));
     box.replaceChildren(log, form);
     draw();
+  }
+
+  // ---------- To order ----------
+  async function loadToOrder(box) {
+    loading(box);
+    try {
+      const d = await api("/api/ecom/to-order");
+      if (!d.groups.length) {
+        box.replaceChildren(h("div", { class: "card empty" }, "✅ Nothing to order right now. New paid orders show up here."),
+          h("button", { class: "ghost", onclick: () => openTab("toorder", true) }, "Refresh"));
+        return;
+      }
+      box.replaceChildren(
+        h("p", { class: "muted small" }, "Paid orders you still need to place with each supplier. Copy the address, order it on the supplier's site, then tap Mark ordered."),
+        ...d.groups.map((g) => h("div", {},
+          h("h2", {}, `${g.supplier} · ${g.orders.length} order${g.orders.length === 1 ? "" : "s"}`),
+          h("div", { class: "list" }, g.orders.map((o) => {
+            const ref = h("input", { placeholder: `${g.supplier} order number (optional)`, "aria-label": "Supplier order number" });
+            return h("article", { class: "card" },
+              h("div", { class: "order-head" }, h("h3", {}, `#${o.number}`), h("span", { class: "muted small" }, when(o.created))),
+              h("ul", { class: "items" }, o.items.map((i) => h("li", {}, h("strong", {}, `${i.quantity} × ${i.name}`), i.sku ? ` · SKU ${i.sku}` : "",
+                i.ships_from ? h("span", { class: "muted small" }, ` · from ${i.ships_from.name}`) : null))),
+              h("pre", { class: "shipto" }, o.ship_to || o.address || "No address"),
+              h("div", { class: "links" },
+                h("button", { class: "ghost", onclick: async () => {
+                  try { await navigator.clipboard.writeText(o.ship_to || o.address); flash("Address copied."); } catch { flash("Couldn't copy. Press and hold the address to copy it.", true); }
+                } }, "📋 Copy address"),
+                g.supplier.toUpperCase() === "CROV" ? h("a", { href: "https://www.crov.com", target: "_blank", rel: "noopener" }, "Open CROV") : null),
+              h("div", { class: "row" }, ref, h("button", { onclick: async (e) => {
+                e.target.disabled = true;
+                try { await api(`/api/ecom/orders/${encodeURIComponent(o.id)}/ordered`, { body: { supplier: g.supplier, ref: ref.value } });
+                  flash(`#${o.number} marked as ordered from ${g.supplier}.`); delete loaded.overview; openTab("toorder", true); }
+                catch (err) { flash(err.message, true); e.target.disabled = false; }
+              } }, "✅ Mark ordered")));
+          })))));
+    } catch (err) { failed(box, err, () => openTab("toorder", true)); }
+  }
+
+  // ---------- Automation ----------
+  async function loadAuto(box) {
+    loading(box);
+    try {
+      const d = await api("/api/ecom/automation");
+      const row = (sw) => {
+        const id = `sw-${sw.key}`;
+        const input = h("input", { type: "checkbox", id, role: "switch", checked: sw.on, disabled: !!sw.blocked && !sw.on,
+          onchange: async (e) => {
+            const on = e.target.checked; e.target.disabled = true;
+            try { await api("/api/ecom/automation", { body: { key: sw.key, on } }); flash(`${sw.label}: ${on ? "on" : "off"}.`); }
+            catch (err) { e.target.checked = !on; flash(err.message, true); }
+            e.target.disabled = false;
+          } });
+        return h("div", { class: "switch-row" + (sw.blocked && !sw.on ? " locked" : "") },
+          h("label", { class: "switch", for: id }, input, h("span", { class: "slider", "aria-hidden": "true" })),
+          h("div", {}, h("label", { for: id, class: "switch-label" }, sw.label),
+            h("p", { class: "muted small", style: "margin:2px 0 0" }, sw.about),
+            sw.blocked ? h("p", { class: "small", style: "margin:4px 0 0;color:var(--warn)" }, "🔒 ", sw.blocked) : null));
+      };
+      const lr = d.last_run || {};
+      const runBtn = h("button", { onclick: async () => {
+        runBtn.disabled = true;
+        try { const r = await api("/api/ecom/automation/run", { method: "POST" });
+          flash(r.error ? `Check finished with a problem: ${r.error}` : `Check done: ${r.processed} new order${r.processed === 1 ? "" : "s"} processed.`, !!r.error);
+          ["overview", "orders", "routes", "toorder"].forEach((k) => delete loaded[k]); openTab("auto", true);
+        } catch (err) { flash(err.message, true); runBtn.disabled = false; }
+      } }, "▶️ Check for new orders now");
+      box.replaceChildren(
+        h("div", { class: "card" }, h("h2", {}, "Your order pipeline"),
+          h("ol", { class: "stops" },
+            h("li", {}, "Customer pays in your Ecwid store."),
+            h("li", {}, `Every ${d.every_minutes} minutes the dashboard picks up new paid orders and routes them to the nearest warehouse and hub.`),
+            h("li", {}, "The order is marked Processing and lands on your 📦 To order list."),
+            h("li", {}, "You place it with the supplier and tap Mark ordered."),
+            h("li", {}, "You add tracking in Orders; Ecwid emails the customer.")),
+          h("p", { class: "muted small" }, lr.at ? `Last check: ${new Date(lr.at).toLocaleString()} · ${lr.processed || 0} new` + (lr.error ? ` · problem: ${lr.error}` : "") : "No check has run yet."),
+          runBtn),
+        h("div", { class: "card" }, h("h2", {}, "Working now (free)"), d.switches.filter((x) => x.group === "free").map(row)),
+        h("div", { class: "card" }, h("h2", {}, "Upgrades for later"),
+          h("p", { class: "muted small" }, "These unlock as you grow. Each one stays locked until what it needs is set up."),
+          d.switches.filter((x) => x.group === "upgrade").map(row)));
+    } catch (err) { failed(box, err, () => openTab("auto", true)); }
   }
 })();
