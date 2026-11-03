@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>CashCow eCommerce Dashboard</title>
+  <link rel="stylesheet" href="ecom-dashboard.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">CashCow <span>eCommerce</span></div>
+    <div id="who" class="who" hidden></div>
+  </header>
+
+  <main id="app">
+    <section id="signin" class="card narrow" hidden>
+      <h1>Control dashboard</h1>
+      <p class="muted">Sign in with your CashCow admin account.</p>
+      <form id="signinForm">
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="email" required placeholder="Your CashCow email">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" required placeholder="Your password">
+        <button type="submit">Sign in</button>
+      </form>
+      <p id="signinError" class="error" hidden></p>
+    </section>
+
+    <div id="dash" hidden>
+      <nav class="tabs" role="tablist" aria-label="Dashboard sections">
+        <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
+        <button role="tab" data-tab="orders">Orders</button>
+        <button role="tab" data-tab="routes">Routes</button>
+        <button role="tab" data-tab="warehouses">Warehouses</button>
+        <button role="tab" data-tab="products">Products</button>
+        <button role="tab" data-tab="zip">ZIP check</button>
+        <button role="tab" data-tab="ask">✨ Ask Claude</button>
+      </nav>
+      <p id="flash" class="flash" role="status" hidden></p>
+      <section id="tab-overview" class="tab"></section>
+      <section id="tab-orders" class="tab" hidden></section>
+      <section id="tab-routes" class="tab" hidden></section>
+      <section id="tab-warehouses" class="tab" hidden></section>
+      <section id="tab-products" class="tab" hidden></section>
+      <section id="tab-zip" class="tab" hidden></section>
+      <section id="tab-ask" class="tab" hidden></section>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="ecom-dashboard.js"></script>
+</body>
+</html>

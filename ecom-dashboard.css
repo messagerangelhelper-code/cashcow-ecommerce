@@ -68,3 +68,6 @@ form button[type=submit] { margin-top: 14px; }
 .empty { text-align: center; color: var(--muted); padding: 24px 12px; }
 .setup ol { padding-left: 20px; margin: 6px 0 0; display: grid; gap: 4px; }
 @media (max-width: 520px) { main { padding: 12px; } .stat b { font-size: 22px; } }
+.ask-q { background: var(--purple-soft); border-color: transparent; margin-left: 12%; }
+.ask-a { border-left: 4px solid var(--gold); }
+textarea { resize: vertical; }

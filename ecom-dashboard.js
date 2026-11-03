@@ -72,7 +72,7 @@
   sb.auth.getSession().then(({ data }) => { session = data.session; showSignedIn(); });
 
   // ---------- Tabs ----------
-  const TABS = { overview: loadOverview, orders: loadOrders, routes: loadRoutes, warehouses: loadWarehouses, products: loadProducts, zip: loadZip };
+  const TABS = { overview: loadOverview, orders: loadOrders, routes: loadRoutes, warehouses: loadWarehouses, products: loadProducts, zip: loadZip, ask: loadAsk };
   function openTab(name, force) {
     if (!TABS[name]) name = "overview";
     document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
@@ -339,5 +339,60 @@
     box.replaceChildren(h("form", { class: "card", onsubmit: go }, h("h2", {}, "Check delivery for a ZIP code"),
       h("p", { class: "muted small" }, "See which hub and supplier warehouses would serve a customer, and about how long delivery takes."),
       zip, h("button", { type: "submit" }, "Check")), out);
+  }
+
+  // ---------- Ask Claude ----------
+  const chat = [];
+  const SUGGEST = [
+    "Which orders need attention today?",
+    "Which CROV orders do I still need to place by hand?",
+    "Where should my next local hub be?",
+    "Write a short product description for a modern gray sofa.",
+  ];
+  async function loadAsk(box) {
+    loading(box);
+    let ready = false;
+    try { ready = (await api("/api/ecom/ask")).ready; } catch (err) { failed(box, err, () => openTab("ask", true)); return; }
+    if (!ready) {
+      box.replaceChildren(h("div", { class: "card setup" }, h("h2", {}, "Switch on Ask Claude"),
+        h("ol", {}, h("li", {}, "Get an API key at console.anthropic.com (API Keys → Create Key). Set a monthly spending limit under Billing."),
+          h("li", {}, "Render → cashcow-reviews-api → Environment: add ANTHROPIC_API_KEY with the key as the value."),
+          h("li", {}, "Save, wait a minute, then tap Try again.")),
+        h("button", { class: "ghost", onclick: () => openTab("ask", true) }, "Try again")));
+      return;
+    }
+    const log = h("div", { class: "list", "aria-live": "polite" });
+    const input = h("textarea", { rows: "3", placeholder: "Ask about your orders, routes, warehouses or products", "aria-label": "Your question" });
+    const send = h("button", { type: "submit" }, "Ask");
+    function bubble(role, text) {
+      return h("div", { class: role === "user" ? "card ask-q" : "card ask-a" },
+        h("p", { class: "muted small", style: "margin:0 0 4px" }, role === "user" ? "You" : "✨ Claude"),
+        h("div", { style: "white-space:pre-wrap" }, text));
+    }
+    function draw() { log.replaceChildren(...chat.map((m) => bubble(m.role, m.content))); }
+    async function ask(q) {
+      q = (q || "").trim();
+      if (!q) return;
+      const history = chat.slice(-6);
+      chat.push({ role: "user", content: q });
+      input.value = ""; send.disabled = true; draw();
+      const wait = h("p", { class: "muted" }, "Claude is reading your store data...");
+      log.append(wait);
+      try {
+        const d = await api("/api/ecom/ask", { body: { question: q, history } });
+        chat.push({ role: "assistant", content: d.answer });
+      } catch (err) {
+        chat.pop(); flash(err.message, true); input.value = q;
+      }
+      send.disabled = false; draw();
+      log.lastElementChild && log.lastElementChild.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    const form = h("form", { class: "card", onsubmit: (e) => { e.preventDefault(); ask(input.value); } },
+      h("h2", {}, "Ask Claude"),
+      h("p", { class: "muted small" }, "Claude reads your orders, warehouses and products (no customer names, addresses or phone numbers) and answers. It can't change anything; it tells you where to do it."),
+      input, h("div", { class: "links" }, send, chat.length ? h("button", { type: "button", class: "ghost", onclick: () => { chat.length = 0; draw(); } }, "Clear") : null),
+      h("div", { class: "links" }, SUGGEST.map((t) => h("button", { type: "button", class: "ghost", style: "font-weight:500", onclick: () => ask(t) }, t))));
+    box.replaceChildren(log, form);
+    draw();
   }
 })();
