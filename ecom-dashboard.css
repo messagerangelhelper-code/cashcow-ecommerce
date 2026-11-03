@@ -93,3 +93,4 @@ textarea { resize: vertical; }
 .pill.chan { background: #e8f1fb; color: #1d4f91; }
 .chan-bars .bar { grid-template-columns: 110px 1fr auto; }
 .chan-bars .bar i { background: var(--gold); }
+.section-tile { border: 1.5px solid var(--line); border-radius: 12px; padding: 12px; background: var(--bg); }

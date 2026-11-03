@@ -326,7 +326,20 @@
         try { const r = await api("/api/ecom/ribbons", { method: "POST" }); flash(r.message); openTab("products", true); }
         catch (err) { flash(err.message, true); ribBtn.disabled = false; ribBtn.textContent = "📍 Add \"Ships from\" ribbons now"; }
       } }, "📍 Add \"Ships from\" ribbons now");
-      box.replaceChildren(h("div", { class: "toolbar" }, search, h("button", { onclick: go }, "Search")),
+      let sections = [];
+      try { sections = (await api("/api/ecom/sections")).sections; } catch { /* optional */ }
+      const sectionCard = sections.length ? h("div", { class: "card" }, h("h3", {}, "Store sections"),
+        h("p", { class: "muted small" }, "One tap builds the section and its shelves in your Ecwid store. Then add products to the shelves (Ask Claude can do it from a photo)."),
+        h("div", { class: "grid2" }, sections.map((sec) => {
+          const b = h("button", { class: "ghost", onclick: async () => {
+            b.disabled = true; b.textContent = "Building...";
+            try { const r = await api(`/api/ecom/sections/${sec.key}`, { method: "POST" }); flash(r.message); b.textContent = "✅ Ready"; }
+            catch (err) { flash(err.message, true); b.disabled = false; b.textContent = `Build ${sec.name}`; }
+          } }, `Build ${sec.name}`);
+          return h("div", { class: "section-tile" }, h("p", { style: "margin:0;font-weight:700" }, `${sec.icon} ${sec.name}`),
+            h("p", { class: "muted small", style: "margin:4px 0 8px" }, sec.shelves.join(" · ")), b);
+        }))) : null;
+      box.replaceChildren(h("div", { class: "toolbar" }, search, h("button", { onclick: go }, "Search")), sectionCard,
         h("div", { class: "card" }, h("p", { class: "small", style: "margin:0 0 8px" },
           "Each product's picture shows where it ships from, like \"📍 From Cranbury, NJ 08512\", so nearby customers know it arrives fast. It comes from the product's supplier warehouse and updates every hour on its own."), ribBtn),
         h("p", { class: "muted small" }, `${d.total} product${d.total === 1 ? "" : "s"}. Add new products and photos in Ecwid; change price, stock and on/off here.`),
