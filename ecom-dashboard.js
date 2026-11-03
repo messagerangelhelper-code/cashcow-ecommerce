@@ -184,6 +184,7 @@
       h("ul", { class: "items" }, o.items.map((i) => h("li", {},
         h("strong", {}, `${i.quantity} × ${i.name}`), i.sku ? ` (${i.sku})` : "", h("br"),
         i.by_hand ? [h("span", { class: "pill gold" }, `Order by hand from ${i.supplier}`), " "] : null,
+        i.auto ? [h("span", { class: "pill good" }, `Sent to ${i.supplier} automatically`), " "] : null,
         i.ships_from ? `Ships from ${i.ships_from.name}, ${i.ships_from.city} ${i.ships_from.state} · ${i.ships_from.miles} mi · ${i.ships_from.days}`
           : !i.by_hand ? h("span", { class: "muted" }, "No supplier warehouse matched") : null))),
       h("div", { class: "row" }, status, tracking),
