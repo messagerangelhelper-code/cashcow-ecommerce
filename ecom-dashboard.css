@@ -94,3 +94,7 @@ textarea { resize: vertical; }
 .chan-bars .bar { grid-template-columns: 110px 1fr auto; }
 .chan-bars .bar i { background: var(--gold); }
 .section-tile { border: 1.5px solid var(--line); border-radius: 12px; padding: 12px; background: var(--bg); }
+.pop-back { position: fixed; inset: 0; background: rgba(20,20,20,.55); display: grid; place-items: center; padding: 16px; z-index: 50; }
+.pop { background: var(--card); border-radius: 18px; padding: 20px; max-width: 420px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+.pop h2 { margin-top: 0; }
+.pop-btn { display: inline-flex; align-items: center; min-height: 42px; padding: 0 18px; border-radius: 10px; background: var(--gold); color: var(--charcoal); font-weight: 700; text-decoration: none; }

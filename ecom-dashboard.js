@@ -40,6 +40,7 @@
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     }).catch(() => { throw new Error("Couldn't reach the CashCow server. It may be waking up; try again in a minute."); });
     const data = await res.json().catch(() => ({}));
+    if (res.status === 402) setTimeout(() => checkCredit(true), 0);
     if (!res.ok) throw new Error(data.detail || `Something went wrong (${res.status}).`);
     return data;
   }
@@ -57,6 +58,7 @@
     if (signed) {
       $("who").replaceChildren(session.user.email, " · ", h("a", { href: "#", onclick: async (e) => { e.preventDefault(); await sb.auth.signOut(); } }, "Sign out"));
       openTab(location.hash.slice(1) || "overview");
+      checkCredit();
     }
   }
   $("signinForm").addEventListener("submit", async (e) => {
@@ -569,6 +571,7 @@
             h("li", {}, "You add tracking in Orders; Ecwid emails the customer.")),
           h("p", { class: "muted small" }, lr.at ? `Last check: ${new Date(lr.at).toLocaleString()} · ${lr.processed || 0} new` + (lr.error ? ` · problem: ${lr.error}` : "") : "No check has run yet."),
           runBtn),
+        await creditCard(),
         h("div", { class: "card" }, h("h2", {}, "Working now (free)"), d.switches.filter((x) => x.group === "free").map(row)),
         ...d.switches.filter((x) => x.group === "channels").map((sw) => h("div", { class: "card" },
           h("h2", {}, "🐙 Sales channels"),
@@ -712,5 +715,55 @@
       h("label", {}, "Shelf", shelf),
       h("div", { class: "row" }, h("label", {}, "Search words", kw), h("label", {}, "Markup (× CJ cost)", mk)),
       h("div", { class: "links" }, h("button", { onclick: doSearch }, "🔍 Find products"), auto), log, out);
+  }
+
+  // ---------- Claude credit reminder ----------
+  let creditShown = false;
+  async function checkCredit(force) {
+    let c;
+    try { c = await api("/api/ecom/claude-credit"); } catch { return; }
+    if (!c.ready) return;
+    let snoozed = false;
+    try { snoozed = Number(sessionStorage.getItem("cc-credit-snooze") || 0) > Date.now(); } catch { /* ignore */ }
+    if (c.low && (force || (!creditShown && !snoozed))) { creditShown = true; creditPopup(c); }
+  }
+  function creditPopup(c) {
+    document.getElementById("creditPop")?.remove();
+    const amt = h("input", { type: "number", min: "1", step: "1", placeholder: "e.g. 10", "aria-label": "Amount you added in dollars" });
+    const close = () => pop.remove();
+    const pop = h("div", { id: "creditPop", class: "pop-back", role: "dialog", "aria-modal": "true", "aria-labelledby": "creditTitle" },
+      h("div", { class: "pop" },
+        h("h2", { id: "creditTitle" }, c.empty ? "🔋 Claude needs a top-up" : "🔋 Claude credit is running low"),
+        h("p", {}, c.empty
+          ? "Your Claude credit ran out, so Ask Claude and the product writer are paused. Add funds and they start working again right away."
+          : `About ${money(Math.max(0, c.left))} of Claude credit is left. Add funds now so Ask Claude and the product writer never stop.`),
+        h("p", { class: "muted small" }, "Tip: in Anthropic's Billing page you can turn on automatic reload, if offered, so it tops itself up."),
+        h("div", { class: "links" },
+          h("a", { href: c.billing_url, target: "_blank", rel: "noopener", class: "pop-btn" }, "💳 Add funds"),
+          h("button", { class: "ghost", onclick: () => { try { sessionStorage.setItem("cc-credit-snooze", String(Date.now() + 6 * 3600e3)); } catch { /* ignore */ } close(); } }, "Remind me later")),
+        h("p", { class: "small", style: "margin:14px 0 4px;font-weight:600" }, "Already added funds? Tell the dashboard how much credit you have now:"),
+        h("div", { class: "row" }, amt, h("button", { onclick: async () => {
+          try { const r = await api("/api/ecom/claude-credit", { body: { amount: Number(amt.value) } }); flash(r.message); close(); }
+          catch (err) { flash(err.message, true); }
+        } }, "Save"))));
+    pop.addEventListener("click", (e) => { if (e.target === pop) close(); });
+    document.body.append(pop);
+  }
+  async function creditCard() {
+    let c;
+    try { c = await api("/api/ecom/claude-credit"); } catch { return null; }
+    if (!c.ready) return null;
+    const amt = h("input", { type: "number", min: "1", step: "1", placeholder: "Credit you have now, e.g. 10", "aria-label": "Claude credit in dollars" });
+    const alertAt = h("input", { type: "number", min: "0", step: "0.5", value: c.alert, "aria-label": "Remind me below this many dollars" });
+    return h("div", { class: "card" }, h("h2", {}, "🔋 Claude credit"),
+      h("p", {}, c.added == null ? "Tell the dashboard how much Claude credit you have, and it reminds you before it runs out."
+        : `About ${money(Math.max(0, c.left))} left of ${money(c.added)} (used ${money(c.spent)} on ${c.calls} answers so far).`),
+      c.empty ? h("p", { class: "error" }, "Anthropic says your credit ran out. Add funds to turn Claude back on.") : null,
+      h("div", { class: "row" }, h("label", {}, "Credit you have now ($)", amt), h("label", {}, "Remind me below ($)", alertAt),
+        h("button", { onclick: async () => {
+          try { const r = await api("/api/ecom/claude-credit", { body: { amount: Number(amt.value), alert: Number(alertAt.value) } }); flash(r.message); openTab("auto", true); }
+          catch (err) { flash(err.message, true); }
+        } }, "Save")),
+      h("div", { class: "links" }, h("a", { href: c.billing_url, target: "_blank", rel: "noopener" }, "💳 Open Anthropic billing")));
   }
 })();
