@@ -71,3 +71,7 @@ form button[type=submit] { margin-top: 14px; }
 .ask-q { background: var(--purple-soft); border-color: transparent; margin-left: 12%; }
 .ask-a { border-left: 4px solid var(--gold); }
 textarea { resize: vertical; }
+.cam-btn { background: var(--gold); color: var(--charcoal); font-size: 17px; padding: 14px 18px; }
+.ask-photo { display: flex; gap: 10px; align-items: center; margin: 10px 0; }
+.ask-photo img { width: 96px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.ask-thumb { display: block; max-width: 160px; max-height: 160px; border-radius: 10px; margin-bottom: 6px; }

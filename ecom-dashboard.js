@@ -349,6 +349,24 @@
     "Where should my next local hub be?",
     "Write a short product description for a modern gray sofa.",
   ];
+  // Shrink photos on the phone before sending (faster, cheaper): longest side 1568px, JPEG.
+  function shrink(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, 1568 / Math.max(img.width, img.height));
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        const dataUrl = c.toDataURL("image/jpeg", 0.85);
+        resolve({ url: dataUrl, data: dataUrl.split(",")[1], type: "image/jpeg" });
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("bad image")); };
+      img.src = url;
+    });
+  }
   async function loadAsk(box) {
     loading(box);
     let ready = false;
@@ -364,32 +382,59 @@
     const log = h("div", { class: "list", "aria-live": "polite" });
     const input = h("textarea", { rows: "3", placeholder: "Ask about your orders, routes, warehouses or products", "aria-label": "Your question" });
     const send = h("button", { type: "submit" }, "Ask");
-    function bubble(role, text) {
-      return h("div", { class: role === "user" ? "card ask-q" : "card ask-a" },
-        h("p", { class: "muted small", style: "margin:0 0 4px" }, role === "user" ? "You" : "✨ Claude"),
-        h("div", { style: "white-space:pre-wrap" }, text));
+    let photo = null; // { data, type, url }
+    const preview = h("div");
+    const camInput = h("input", { type: "file", accept: "image/*", capture: "environment", hidden: true,
+      onchange: async (e) => {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = "";
+        if (!file) return;
+        try { photo = await shrink(file); showPhoto(); } catch { flash("That photo couldn't be opened. Try again.", true); }
+      } });
+    const libInput = h("input", { type: "file", accept: "image/*", hidden: true, onchange: camInput.onchange });
+    libInput.addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      try { photo = await shrink(file); showPhoto(); } catch { flash("That photo couldn't be opened. Try again.", true); }
+    });
+    function showPhoto() {
+      preview.replaceChildren(...(photo ? [h("div", { class: "ask-photo" },
+        h("img", { src: photo.url, alt: "Photo to send" }),
+        h("button", { type: "button", class: "danger", onclick: () => { photo = null; showPhoto(); } }, "Remove photo"))] : []));
     }
-    function draw() { log.replaceChildren(...chat.map((m) => bubble(m.role, m.content))); }
+    function bubble(m) {
+      return h("div", { class: m.role === "user" ? "card ask-q" : "card ask-a" },
+        h("p", { class: "muted small", style: "margin:0 0 4px" }, m.role === "user" ? "You" : "✨ Claude"),
+        m.photo ? h("img", { src: m.photo, alt: "Your photo", class: "ask-thumb" }) : null,
+        h("div", { style: "white-space:pre-wrap" }, m.content));
+    }
+    function draw() { log.replaceChildren(...chat.map(bubble)); }
     async function ask(q) {
       q = (q || "").trim();
-      if (!q) return;
-      const history = chat.slice(-6);
-      chat.push({ role: "user", content: q });
-      input.value = ""; send.disabled = true; draw();
+      if (!q && !photo) return;
+      const history = chat.slice(-6).map((m) => ({ role: m.role, content: m.content }));
+      const sent = photo;
+      chat.push({ role: "user", content: q || "📷 What is in this photo?", photo: sent ? sent.url : null });
+      input.value = ""; send.disabled = true; photo = null; showPhoto(); draw();
       const wait = h("p", { class: "muted" }, "Claude is reading your store data...");
       log.append(wait);
       try {
-        const d = await api("/api/ecom/ask", { body: { question: q, history } });
+        const d = await api("/api/ecom/ask", { body: { question: q, history, image: sent ? sent.data : "", image_type: sent ? sent.type : "" } });
         chat.push({ role: "assistant", content: d.answer });
       } catch (err) {
-        chat.pop(); flash(err.message, true); input.value = q;
+        chat.pop(); flash(err.message, true); input.value = q; photo = sent; showPhoto();
       }
       send.disabled = false; draw();
       log.lastElementChild && log.lastElementChild.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     const form = h("form", { class: "card", onsubmit: (e) => { e.preventDefault(); ask(input.value); } },
       h("h2", {}, "Ask Claude"),
-      h("p", { class: "muted small" }, "Claude reads your orders, warehouses and products (no customer names, addresses or phone numbers) and answers. It can't change anything; it tells you where to do it."),
+      h("p", { class: "muted small" }, "Snap a product, label, packing slip or invoice, or type a question. Claude reads your orders, warehouses and products (no customer names, addresses or phone numbers). It can't change anything; it tells you where to do it."),
+      h("div", { class: "links" },
+        h("button", { type: "button", class: "cam-btn", onclick: () => camInput.click() }, "📷 Take a photo"),
+        h("button", { type: "button", class: "ghost", onclick: () => libInput.click() }, "🖼️ Choose a photo")),
+      camInput, libInput, preview,
       input, h("div", { class: "links" }, send, chat.length ? h("button", { type: "button", class: "ghost", onclick: () => { chat.length = 0; draw(); } }, "Clear") : null),
       h("div", { class: "links" }, SUGGEST.map((t) => h("button", { type: "button", class: "ghost", style: "font-weight:500", onclick: () => ask(t) }, t))));
     box.replaceChildren(log, form);
