@@ -595,7 +595,8 @@
       const joinLink = "https://cashcow-ecommerce.onrender.com/candylady.html";
       const sellerCard = (x) => h("article", { class: "card" },
         h("div", { class: "order-head" }, h("h3", {}, `${x.name} · ${x.code}`),
-          h("span", { class: x.status === "active" ? "pill good" : "pill bad" }, x.status === "active" ? "Active" : "Paused")),
+          h("span", {}, x.waiting ? h("span", { class: "pill gold" }, "⏳ Code waiting for Ecwid Venture plan") : null, " ",
+            h("span", { class: x.status === "active" ? "pill good" : "pill bad" }, x.status === "active" ? "Active" : "Paused"))),
         h("p", { class: "muted small" }, x.email, x.phone ? ` · ${x.phone}` : "", ` · pays by ${x.payout_method || "?"} ${x.payout_handle || ""}`),
         h("p", { class: "small" }, `${x.orders} order${x.orders === 1 ? "" : "s"} · owed ${money(x.owed)} · on the way ${money(x.pending)} · paid ${money(x.paid)}`),
         h("div", { class: "links" },

@@ -261,7 +261,9 @@
   function drawMine() {
     const s = info.seller, t = info.totals;
     $("myCode").textContent = s.code;
-    $("myStatus").textContent = s.status === "active" ? `Customers get ${info.discount}% off · you earn ${info.cut}%` : "Your code is paused. Contact the store owner.";
+    $("myStatus").textContent = s.status !== "active" ? "Your code is paused. Contact the store owner."
+      : s.waiting ? "⏳ Your code is saved! It switches on in the store very soon. You can start inviting people now."
+      : `Customers get ${info.discount}% off · you earn ${info.cut}%`;
     $("tOwed").textContent = money(t.owed); $("tPending").textContent = money(t.pending);
     $("tPaid").textContent = money(t.paid); $("tOrders").textContent = t.orders;
     const label = { payable: ["Ready", "mint"], pending: ["On the way", ""], void: ["Returned", "grey"], unpaid: ["Not paid yet", "grey"] };
