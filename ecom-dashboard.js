@@ -109,6 +109,12 @@
           stat(d.open, "Open orders"), stat(d.to_process, "New, not started", true),
           stat(d.by_hand, "Need ordering by hand", true), stat(d.no_hub, "No local hub yet", true),
           stat(d.bad_zip, "ZIP code not found", true), stat(`${d.hubs} / ${d.supplier_warehouses}`, "Local hubs / supplier warehouses")),
+        h("div", { class: "card" }, h("h3", {}, "Paid sales by channel, last 30 days"),
+          (d.by_channel || []).length ? h("div", { class: "bars chan-bars" }, (() => {
+            const top = Math.max(1, ...d.by_channel.map((c) => c[1][1]));
+            return d.by_channel.map(([name, [n, amt]]) => h("div", { class: "bar" }, h("span", {}, name),
+              h("i", { style: `width:${Math.round((amt / top) * 100)}%` }), h("em", {}, `${money(amt)} · ${n}`)));
+          })()) : h("p", { class: "muted" }, "No paid sales yet. Turn on channels in Ecwid → Sales channels.")),
         h("div", { class: "card" }, h("h3", {}, "Open orders by state"),
           d.open_by_state.length ? h("div", { class: "bars" }, d.open_by_state.map(([st, n]) =>
             h("div", { class: "bar" }, h("span", {}, st), h("i", { style: `width:${Math.round((n / max) * 100)}%` }), h("em", {}, n))))
@@ -169,7 +175,7 @@
     return h("article", { class: "card" },
       h("div", { class: "order-head" },
         h("h3", {}, `#${o.number} · ${o.customer || "No name"}`),
-        h("span", {}, h("span", { class: paid ? "pill good" : "pill gold" }, paid ? "Paid" : (o.payment || "Unpaid").replace(/_/g, " ").toLowerCase()), " ",
+        h("span", {}, h("span", { class: "pill chan" }, o.channel || "Online store"), " ", h("span", { class: paid ? "pill good" : "pill gold" }, paid ? "Paid" : (o.payment || "Unpaid").replace(/_/g, " ").toLowerCase()), " ",
           h("span", { class: "pill" }, STATUS[o.status] || o.status))),
       h("p", { class: "muted small" }, when(o.created), " · ", money(o.total), o.phone ? ` · ${o.phone}` : ""),
       h("p", { class: "small" }, o.address || "No shipping address",
@@ -481,7 +487,8 @@
           h("div", { class: "list" }, g.orders.map((o) => {
             const ref = h("input", { placeholder: `${g.supplier} order number (optional)`, "aria-label": "Supplier order number" });
             return h("article", { class: "card" },
-              h("div", { class: "order-head" }, h("h3", {}, `#${o.number}`), h("span", { class: "muted small" }, when(o.created))),
+              h("div", { class: "order-head" }, h("h3", {}, `#${o.number}`),
+                h("span", { class: "muted small" }, h("span", { class: "pill chan" }, o.channel || "Online store"), " ", when(o.created))),
               h("ul", { class: "items" }, o.items.map((i) => h("li", {}, h("strong", {}, `${i.quantity} × ${i.name}`), i.sku ? ` · SKU ${i.sku}` : "",
                 i.ships_from ? h("span", { class: "muted small" }, ` · from ${i.ships_from.name}`) : null))),
               h("pre", { class: "shipto" }, o.ship_to || o.address || "No address"),
@@ -539,6 +546,14 @@
           h("p", { class: "muted small" }, lr.at ? `Last check: ${new Date(lr.at).toLocaleString()} · ${lr.processed || 0} new` + (lr.error ? ` · problem: ${lr.error}` : "") : "No check has run yet."),
           runBtn),
         h("div", { class: "card" }, h("h2", {}, "Working now (free)"), d.switches.filter((x) => x.group === "free").map(row)),
+        ...d.switches.filter((x) => x.group === "channels").map((sw) => h("div", { class: "card" },
+          h("h2", {}, "🐙 Sales channels"),
+          h("p", {}, sw.about),
+          h("ol", { class: "stops" },
+            h("li", {}, "Open Ecwid and tap the menu (☰)."),
+            h("li", {}, "Tap Sales channels."),
+            h("li", {}, "Turn on each channel and follow its short setup.")),
+          h("div", { class: "links" }, h("a", { href: "https://my.ecwid.com/", target: "_blank", rel: "noopener" }, "Open Ecwid")))),
         h("div", { class: "card" }, h("h2", {}, "Upgrades for later"),
           h("p", { class: "muted small" }, "These unlock as you grow. Each one stays locked until what it needs is set up."),
           d.switches.filter((x) => x.group === "upgrade").map(row)));

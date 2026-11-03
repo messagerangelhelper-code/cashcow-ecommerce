@@ -90,3 +90,6 @@ textarea { resize: vertical; }
 .switch input:checked + .slider::before { transform: translateX(22px); }
 .switch input:focus-visible + .slider { outline: 3px solid var(--purple); outline-offset: 2px; }
 .switch input:disabled { cursor: default; }
+.pill.chan { background: #e8f1fb; color: #1d4f91; }
+.chan-bars .bar { grid-template-columns: 110px 1fr auto; }
+.chan-bars .bar i { background: var(--gold); }
