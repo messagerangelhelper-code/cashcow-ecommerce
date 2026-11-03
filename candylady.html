@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Become a Candy Lady</title>
+  <meta name="description" content="Join The Candy Lady free. Share your code, your neighbors save 5%, and you earn 10% of every order.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap">
+  <style>
+    /* Candy-shop warm: cream paper, cherry and mint, one rounded display face. Phone first. */
+    * { box-sizing: border-box; }
+    :root {
+      --paper: #fff8f1; --card: #ffffff; --ink: #2b1b24; --muted: #6f5a64; --line: #f0dfe3;
+      --cherry: #c2185b; --cherry-dark: #9c1249; --cherry-soft: #fde7ef; --mint: #1e8a6e; --mint-soft: #e2f5ee;
+      --lemon: #fff1c2; --warn: #8a5300; --bad: #b42318; --bad-soft: #fdecea;
+      --display: "Fredoka", "Nunito", system-ui, sans-serif; --body: "Nunito", system-ui, sans-serif;
+    }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.55 var(--body); }
+    main { max-width: 640px; margin: 0 auto; padding: 0 16px 48px; }
+    .hero { text-align: center; padding: 34px 8px 18px; }
+    .hero .logo { font: 700 40px/1.05 var(--display); color: var(--cherry); margin: 0; letter-spacing: -.5px; }
+    .hero .logo span { display: block; font-size: 18px; color: var(--mint); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+    .hero p { margin: 12px auto 0; max-width: 30ch; font-size: 19px; }
+    h2 { font: 600 22px/1.2 var(--display); margin: 0 0 10px; }
+    .card { background: var(--card); border: 1.5px solid var(--line); border-radius: 20px; padding: 18px; margin-bottom: 14px; min-width: 0; }
+    .steps { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: s; }
+    .steps li { counter-increment: s; display: grid; grid-template-columns: 36px 1fr; gap: 10px; align-items: start; }
+    .steps li::before { content: counter(s); width: 32px; height: 32px; border-radius: 50%; background: var(--cherry-soft); color: var(--cherry);
+      font: 700 17px/32px var(--display); text-align: center; }
+    label { display: block; font-weight: 700; font-size: 15px; margin: 12px 0 4px; }
+    input, select { width: 100%; font: inherit; padding: 12px 14px; border: 2px solid #e6cfd6; border-radius: 14px; background: #fff; color: var(--ink); }
+    input::placeholder { color: #a8939c; }
+    input:focus, select:focus, button:focus-visible, a:focus-visible { outline: 3px solid var(--mint); outline-offset: 1px; }
+    button { font: 600 17px/1 var(--display); background: var(--cherry); color: #fff; border: 0; border-radius: 999px; padding: 14px 22px; min-height: 48px; cursor: pointer; }
+    button:hover { background: var(--cherry-dark); }
+    button.ghost { background: #fff; color: var(--cherry); border: 2px solid var(--cherry); }
+    button:disabled { opacity: .55; cursor: default; }
+    .full { width: 100%; margin-top: 16px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .muted { color: var(--muted); } .small { font-size: 15px; }
+    .error { background: var(--bad-soft); color: var(--bad); padding: 10px 14px; border-radius: 12px; margin-top: 12px; }
+    .ok { background: var(--mint-soft); color: var(--mint); padding: 10px 14px; border-radius: 12px; margin-top: 12px; }
+    .switch { text-align: center; margin-top: 14px; }
+    .switch a, .linkbtn { color: var(--cherry); font-weight: 700; background: none; border: 0; padding: 0; min-height: 0; font: 700 16px var(--body); cursor: pointer; text-decoration: underline; }
+    .code-card { text-align: center; background: var(--lemon); border-color: #f3dd8a; }
+    .code { font: 700 44px/1.1 var(--display); color: var(--cherry); letter-spacing: 2px; margin: 6px 0 4px; word-break: break-all; }
+    .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .stat { background: var(--card); border: 1.5px solid var(--line); border-radius: 18px; padding: 14px; }
+    .stat b { display: block; font: 700 26px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+    .stat.owed { background: var(--mint-soft); border-color: #bfe6d8; } .stat.owed b { color: var(--mint); }
+    .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .list li { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px dashed var(--line); padding-bottom: 8px; font-size: 15px; }
+    .pill { font-size: 13px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--cherry-soft); color: var(--cherry); white-space: nowrap; }
+    .pill.mint { background: var(--mint-soft); color: var(--mint); } .pill.grey { background: #eee; color: #666; }
+    .terms { font-size: 14px; color: var(--muted); max-height: 180px; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 12px; }
+    .terms li { margin-bottom: 6px; }
+    .check { display: flex; gap: 10px; align-items: flex-start; font-weight: 600; margin-top: 12px; }
+    .check input { width: 22px; height: 22px; margin-top: 2px; flex: none; accent-color: var(--cherry); }
+    [hidden] { display: none !important; }
+    footer { text-align: center; color: var(--muted); font-size: 14px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <h1 class="logo"><span>🍬 Join the crew</span>The Candy Lady</h1>
+    <p>Share your code. Your neighbors save <strong id="dPct">5%</strong>. You earn <strong id="cPct">10%</strong> of every order.</p>
+  </header>
+
+  <section class="card" id="how">
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li><span>Join free and pick your code, like <strong>MSJONES</strong>.</span></li>
+      <li><span>Share it with family, neighbors and friends. They shop candy, snacks, drinks and party treats online and type your code at checkout.</span></li>
+      <li><span>We pack and ship every order. You earn on each one and get paid by Cash App, PayPal, Zelle or Venmo.</span></li>
+    </ol>
+  </section>
+
+  <!-- Signed out -->
+  <section class="card" id="auth" hidden>
+    <h2 id="authTitle">Create your free account</h2>
+    <form id="authForm">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email" required placeholder="you@example.com">
+      <label for="pw">Password</label>
+      <input id="pw" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters">
+      <button class="full" type="submit" id="authBtn">Create account</button>
+    </form>
+    <p class="switch"><button class="linkbtn" id="authSwap" type="button">I already have an account</button></p>
+    <p class="switch"><button class="linkbtn" id="forgot" type="button" hidden>Forgot password?</button></p>
+    <p id="authMsg" hidden></p>
+  </section>
+
+  <!-- Opened from a password-reset email -->
+  <section class="card" id="newPw" hidden>
+    <h2>Choose a new password</h2>
+    <form id="newPwForm">
+      <label for="pw2">New password</label>
+      <input id="pw2" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters">
+      <button class="full" type="submit">Save password</button>
+    </form>
+    <p id="newPwMsg" hidden></p>
+  </section>
+
+  <!-- Signed in, not joined -->
+  <section class="card" id="join" hidden>
+    <h2>Make your Candy Lady code</h2>
+    <form id="joinForm">
+      <label for="jName">Your name (shown to the store owner)</label>
+      <input id="jName" required maxlength="60" placeholder="e.g. Ms. Jones">
+      <label for="jCode">Your code (4 to 16 letters or numbers)</label>
+      <input id="jCode" required maxlength="16" autocapitalize="characters" placeholder="e.g. MSJONES">
+      <label for="jPhone">Phone (optional)</label>
+      <input id="jPhone" type="tel" autocomplete="tel" placeholder="So we can reach you about payouts">
+      <label for="jMethod">How should we pay you?</label>
+      <select id="jMethod"></select>
+      <label for="jHandle">Your $cashtag, PayPal/Zelle email or phone</label>
+      <input id="jHandle" maxlength="80" placeholder="e.g. $msjones">
+      <ul class="terms" id="terms"></ul>
+      <label class="check"><input type="checkbox" id="jAgree"> I'm 18 or older and I agree to the Candy Lady terms.</label>
+      <button class="full" type="submit">Join The Candy Lady 🍬</button>
+    </form>
+    <p id="joinMsg" hidden></p>
+  </section>
+
+  <!-- Joined -->
+  <div id="mine" hidden>
+    <section class="card code-card">
+      <p class="muted small" style="margin:0">Your code</p>
+      <p class="code" id="myCode"></p>
+      <p class="small" style="margin:0" id="myStatus"></p>
+      <div class="row" style="justify-content:center">
+        <button type="button" id="shareBtn">📣 Share my code</button>
+        <button type="button" class="ghost" id="copyBtn">📋 Copy</button>
+      </div>
+      <p id="shareMsg" hidden></p>
+    </section>
+    <div class="stats">
+      <div class="stat owed"><b id="tOwed">$0.00</b><span>Ready to be paid</span></div>
+      <div class="stat"><b id="tPending">$0.00</b><span>On the way (pays once shipped)</span></div>
+      <div class="stat"><b id="tPaid">$0.00</b><span>Paid to you</span></div>
+      <div class="stat"><b id="tOrders">0</b><span>Orders with your code</span></div>
+    </div>
+    <section class="card">
+      <h2>Recent orders</h2>
+      <ul class="list" id="sales"></ul>
+    </section>
+    <section class="card">
+      <h2>Payouts</h2>
+      <p class="small muted" id="payNote"></p>
+      <ul class="list" id="payouts"></ul>
+      <form id="payForm">
+        <label for="pMethod">Pay me by</label>
+        <select id="pMethod"></select>
+        <label for="pHandle">$cashtag, email or phone</label>
+        <input id="pHandle" maxlength="80">
+        <button class="full ghost" type="submit">Save payout details</button>
+      </form>
+      <p id="payMsg" hidden></p>
+    </section>
+  </div>
+
+  <p class="switch" id="outRow" hidden><span class="muted small" id="who"></span> · <button class="linkbtn" id="signOut" type="button">Sign out</button></p>
+  <footer>The Candy Lady is part of CashCow eCommerce.</footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+(function () {
+  const API = "https://cashcow-reviews-api.onrender.com";
+  const HERE = "https://cashcow-ecommerce.onrender.com/candylady.html";
+  const sb = window.supabase.createClient("https://wbugdujmydwmzemccbiy.supabase.co", "sb_publishable_4RYit1aVs5Egh3gJsx2bJA_m6Kje0ES");
+  const $ = (id) => document.getElementById(id);
+  let resetting = /type=recovery/.test(location.hash + location.search);
+  let session = null, signUp = true, info = null;
+  const money = (n) => "$" + Number(n || 0).toFixed(2);
+
+  function say(el, text, kind) { el.textContent = text; el.className = kind || "ok"; el.hidden = !text; }
+  async function api(path, body) {
+    const res = await fetch(API + path, { method: body ? "POST" : "GET",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: body ? JSON.stringify(body) : undefined }).catch(() => { throw new Error("Couldn't reach the server. Try again in a minute."); });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.detail || "Something went wrong. Try again.");
+    return d;
+  }
+
+  // ----- sign in / sign up -----
+  function drawAuth() {
+    $("authTitle").textContent = signUp ? "Create your free account" : "Sign in";
+    $("authBtn").textContent = signUp ? "Create account" : "Sign in";
+    $("authSwap").textContent = signUp ? "I already have an account" : "I'm new, create an account";
+    $("pw").autocomplete = signUp ? "new-password" : "current-password";
+    $("forgot").hidden = signUp;
+    $("authMsg").hidden = true;
+  }
+  $("authSwap").onclick = () => { signUp = !signUp; drawAuth(); };
+  $("authForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("email").value.trim(), password = $("pw").value;
+    $("authBtn").disabled = true;
+    if (signUp) {
+      const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: HERE } });
+      if (error) say($("authMsg"), error.message, "error");
+      else if (!data.session) say($("authMsg"), "Check your email and tap the confirm link. Then come back here and sign in.");
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) say($("authMsg"), error.message === "Invalid login credentials" ? "That email and password don't match. Try again, or tap Forgot password." : error.message, "error");
+    }
+    $("authBtn").disabled = false;
+  });
+  $("forgot").onclick = async () => {
+    const email = $("email").value.trim();
+    if (!email) { say($("authMsg"), "Type your email first, then tap Forgot password.", "error"); return; }
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: HERE });
+    say($("authMsg"), error ? error.message : "Check your email for a link to choose a new password.", error ? "error" : "ok");
+  };
+  $("newPwForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const { error } = await sb.auth.updateUser({ password: $("pw2").value });
+    if (error) { say($("newPwMsg"), error.message, "error"); return; }
+    resetting = false; history.replaceState(null, "", location.pathname); refresh();
+  });
+  $("signOut").onclick = () => sb.auth.signOut();
+
+  // ----- joined / not joined -----
+  function fillMethods(sel, value) {
+    sel.replaceChildren(...info.methods.map((m) => Object.assign(document.createElement("option"), { value: m, textContent: m, selected: m === value })));
+  }
+  function shareText() {
+    const s = info.seller;
+    return `🍬 Get ${info.discount}% off candy, snacks and party treats from The Candy Lady! Use my code ${s.code} at checkout.` + (info.shop_url ? ` ${info.shop_url}` : "");
+  }
+  function drawMine() {
+    const s = info.seller, t = info.totals;
+    $("myCode").textContent = s.code;
+    $("myStatus").textContent = s.status === "active" ? `Customers get ${info.discount}% off · you earn ${info.cut}%` : "Your code is paused. Contact the store owner.";
+    $("tOwed").textContent = money(t.owed); $("tPending").textContent = money(t.pending);
+    $("tPaid").textContent = money(t.paid); $("tOrders").textContent = t.orders;
+    const label = { payable: ["Ready", "mint"], pending: ["On the way", ""], void: ["Returned", "grey"], unpaid: ["Not paid yet", "grey"] };
+    $("sales").replaceChildren(...(info.sales.length ? info.sales.map((x) => {
+      const [txt, cls] = x.paid_out ? ["Paid", "mint"] : (label[x.status] || [x.status, ""]);
+      const li = document.createElement("li");
+      li.append(`Order #${x.order_number} · ${(x.ordered_at || "").slice(0, 10)}`);
+      const right = document.createElement("span");
+      right.append(money(x.earned), " ", Object.assign(document.createElement("span"), { className: `pill ${cls}`, textContent: txt }));
+      li.append(right); return li;
+    }) : [Object.assign(document.createElement("li"), { className: "muted", textContent: "No orders yet. Share your code to get started!" })]));
+    $("payNote").textContent = `We pay once you have ${money(info.min_payout)} or more ready, by ${s.payout_method || "your chosen method"}.`;
+    $("payouts").replaceChildren(...(info.payouts.length ? info.payouts.map((p) => {
+      const li = document.createElement("li");
+      li.append(`${new Date(p.paid_at).toLocaleDateString()} · ${p.method}`, Object.assign(document.createElement("strong"), { textContent: money(p.amount) }));
+      return li;
+    }) : [Object.assign(document.createElement("li"), { className: "muted", textContent: "No payouts yet." })]));
+    fillMethods($("pMethod"), s.payout_method); $("pHandle").value = s.payout_handle || "";
+  }
+
+  $("shareBtn").onclick = async () => {
+    if (navigator.share) { try { await navigator.share({ text: shareText() }); return; } catch (e) { if (e.name === "AbortError") return; } }
+    $("copyBtn").click();
+  };
+  $("copyBtn").onclick = async () => {
+    try { await navigator.clipboard.writeText(shareText()); say($("shareMsg"), "Copied! Paste it in a text, Facebook or WhatsApp."); }
+    catch { say($("shareMsg"), shareText()); }
+  };
+  $("jCode").addEventListener("input", (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); });
+  $("joinForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/api/candy/join", { name: $("jName").value, code: $("jCode").value, phone: $("jPhone").value,
+        payout_method: $("jMethod").value, payout_handle: $("jHandle").value, agree: $("jAgree").checked });
+      await refresh();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) { say($("joinMsg"), err.message, "error"); }
+  });
+  $("payForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try { await api("/api/candy/me", { payout_method: $("pMethod").value, payout_handle: $("pHandle").value }); say($("payMsg"), "Saved."); }
+    catch (err) { say($("payMsg"), err.message, "error"); }
+  });
+
+  function terms() {
+    const items = [
+      `Joining is free. You're an independent seller, not an employee.`,
+      `Customers who use your code get ${info.discount}% off. You earn ${info.cut}% of what they pay for the products (not shipping or tax).`,
+      `Earnings are ready once the order ships. Returned or cancelled orders don't earn.`,
+      `We pay when you have ${money(info.min_payout)} or more ready, by the method you choose. You're responsible for any taxes on what you earn.`,
+      `Share honestly: no spam, no fake reviews, and no promises we don't make (like delivery dates).`,
+      `Orders you place for yourself with your own code don't earn.`,
+      `We can change these rates or pause a code, and we'll tell you before rates change.`,
+    ];
+    $("terms").replaceChildren(...items.map((t) => Object.assign(document.createElement("li"), { textContent: t })));
+  }
+
+  async function refresh() {
+    const signed = !!session;
+    $("newPw").hidden = !(resetting && signed);
+    $("auth").hidden = signed;
+    $("outRow").hidden = !signed;
+    $("join").hidden = true; $("mine").hidden = true;
+    if (!signed || resetting) return;
+    $("who").textContent = session.user.email;
+    try {
+      info = await api("/api/candy/me");
+      $("dPct").textContent = `${info.discount}%`; $("cPct").textContent = `${info.cut}%`;
+      if (info.seller) { drawMine(); $("mine").hidden = false; $("how").hidden = true; }
+      else { fillMethods($("jMethod"), "Cash App"); terms(); $("join").hidden = false; $("how").hidden = false; }
+    } catch (err) { say($("authMsg"), err.message, "error"); $("auth").hidden = false; }
+  }
+
+  sb.auth.onAuthStateChange((_e, s) => { const changed = !!s !== !!session; session = s; if (changed) refresh(); });
+  sb.auth.getSession().then(({ data }) => { session = data.session; drawAuth(); refresh(); });
+})();
+</script>
+</body>
+</html>

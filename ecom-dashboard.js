@@ -72,7 +72,7 @@
   sb.auth.getSession().then(({ data }) => { session = data.session; showSignedIn(); });
 
   // ---------- Tabs ----------
-  const TABS = { overview: loadOverview, orders: loadOrders, routes: loadRoutes, warehouses: loadWarehouses, products: loadProducts, zip: loadZip, ask: loadAsk, toorder: loadToOrder, auto: loadAuto };
+  const TABS = { overview: loadOverview, orders: loadOrders, routes: loadRoutes, warehouses: loadWarehouses, products: loadProducts, zip: loadZip, ask: loadAsk, toorder: loadToOrder, auto: loadAuto, candy: loadCandy };
   function openTab(name, force) {
     if (!TABS[name]) name = "overview";
     document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
@@ -566,5 +566,51 @@
           h("p", { class: "muted small" }, "These unlock as you grow. Each one stays locked until what it needs is set up."),
           d.switches.filter((x) => x.group === "upgrade").map(row)));
     } catch (err) { failed(box, err, () => openTab("auto", true)); }
+  }
+
+  // ---------- The Candy Lady ----------
+  async function loadCandy(box) {
+    loading(box);
+    try {
+      const d = await api("/api/candy/admin");
+      const st = d.settings;
+      const disc = h("input", { type: "number", min: "0", max: "50", step: "0.5", value: st.candy_discount, "aria-label": "Customer discount percent" });
+      const cut = h("input", { type: "number", min: "0", max: "50", step: "0.5", value: st.candy_cut, "aria-label": "Candy Lady cut percent" });
+      const url = h("input", { type: "url", value: st.candy_url || "", placeholder: "https://...company.site/Candy-Lady-c123", "aria-label": "Candy Lady store link" });
+      const joinLink = "https://cashcow-ecommerce.onrender.com/candylady.html";
+      const sellerCard = (x) => h("article", { class: "card" },
+        h("div", { class: "order-head" }, h("h3", {}, `${x.name} · ${x.code}`),
+          h("span", { class: x.status === "active" ? "pill good" : "pill bad" }, x.status === "active" ? "Active" : "Paused")),
+        h("p", { class: "muted small" }, x.email, x.phone ? ` · ${x.phone}` : "", ` · pays by ${x.payout_method || "?"} ${x.payout_handle || ""}`),
+        h("p", { class: "small" }, `${x.orders} order${x.orders === 1 ? "" : "s"} · owed ${money(x.owed)} · on the way ${money(x.pending)} · paid ${money(x.paid)}`),
+        h("div", { class: "links" },
+          x.owed > 0 ? h("button", { onclick: async (e) => {
+            if (!confirm(`Did you pay ${x.name} ${money(x.owed)} by ${x.payout_method} (${x.payout_handle || "no handle"})?`)) return;
+            e.target.disabled = true;
+            try { const r = await api(`/api/candy/admin/sellers/${x.id}/paid`, { method: "POST" }); flash(r.message); openTab("candy", true); }
+            catch (err) { flash(err.message, true); e.target.disabled = false; }
+          } }, `✅ Mark ${money(x.owed)} paid`) : null,
+          h("button", { class: x.status === "active" ? "danger" : "ghost", onclick: async () => {
+            try { const r = await api(`/api/candy/admin/sellers/${x.id}`, { body: { status: x.status === "active" ? "paused" : "active" } }); flash(r.message); openTab("candy", true); }
+            catch (err) { flash(err.message, true); }
+          } }, x.status === "active" ? "Pause code" : "Turn code back on")));
+      box.replaceChildren(
+        h("div", { class: "card" }, h("h2", {}, "🍬 The Candy Lady"),
+          h("p", { class: "small" }, "Anyone can join free at the page below, get a code, and share it. Customers save with the code; the Candy Lady earns a cut once the order ships."),
+          h("div", { class: "links" },
+            h("a", { href: joinLink, target: "_blank", rel: "noopener" }, "Open the join page"),
+            h("button", { class: "ghost", onclick: async () => { try { await navigator.clipboard.writeText(joinLink); flash("Join link copied."); } catch { flash(joinLink); } } }, "📋 Copy join link"))),
+        h("div", { class: "card" }, h("h3", {}, `Who to pay (${money(d.min_payout)} or more owed)`),
+          d.to_pay.length ? h("div", { class: "list" }, d.to_pay.map(sellerCard)) : h("p", { class: "muted" }, "Nobody is due a payout right now.")),
+        h("div", { class: "card" }, h("h3", {}, "Rates and store link"),
+          h("div", { class: "row" }, h("label", {}, "Customer discount %", disc), h("label", {}, "Candy Lady cut %", cut)),
+          h("label", {}, "Link to your Candy Lady products in Ecwid (shared with each code)", url),
+          h("button", { style: "margin-top:10px", onclick: async () => {
+            try { const r = await api("/api/candy/admin/settings", { body: { discount: Number(disc.value), cut: Number(cut.value), url: url.value.trim() } }); flash(r.message); }
+            catch (err) { flash(err.message, true); }
+          } }, "Save")),
+        h("h2", {}, `All Candy Ladies (${d.sellers.length})`),
+        h("div", { class: "list" }, d.sellers.length ? d.sellers.map(sellerCard) : [h("p", { class: "empty" }, "No Candy Ladies yet. Share the join page!")]));
+    } catch (err) { failed(box, err, () => openTab("candy", true)); }
   }
 })();
