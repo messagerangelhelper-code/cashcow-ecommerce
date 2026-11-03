@@ -58,6 +58,9 @@
     .check { display: flex; gap: 10px; align-items: flex-start; font-weight: 600; margin-top: 12px; }
     .check input { width: 22px; height: 22px; margin-top: 2px; flex: none; accent-color: var(--cherry); }
     [hidden] { display: none !important; }
+    .party { background: linear-gradient(180deg, #fff3e3 0%, #ffffff 60%); border-color: #f3d3b0; }
+    .party-pics { display: flex; gap: 10px; justify-content: center; margin-bottom: 12px; }
+    .party-pics img { width: 46%; max-width: 180px; aspect-ratio: 1; object-fit: cover; border-radius: 16px; }
     footer { text-align: center; color: var(--muted); font-size: 14px; margin-top: 24px; }
   </style>
 </head>
@@ -73,7 +76,7 @@
     <ol class="steps">
       <li><span>Join free and pick your code, like <strong>MSJONES</strong>.</span></li>
       <li><span>Share it with family, neighbors and friends. They shop candy, snacks, drinks and party treats online and type your code at checkout.</span></li>
-      <li><span>We pack and ship every order. You earn on each one and get paid by Cash App, PayPal, Zelle or Venmo.</span></li>
+      <li><span>We pack and ship every order. You earn on each one and get paid by Cash App, PayPal, Zelle or Venmo, or take store credit with a bonus 🎁</span></li>
     </ol>
   </section>
 
@@ -115,7 +118,7 @@
       <input id="jPhone" type="tel" autocomplete="tel" placeholder="So we can reach you about payouts">
       <label for="jMethod">How should we pay you?</label>
       <select id="jMethod"></select>
-      <label for="jHandle">Your $cashtag, PayPal/Zelle email or phone</label>
+      <label for="jHandle">Your $cashtag, PayPal/Zelle email or phone (skip for store credit)</label>
       <input id="jHandle" maxlength="80" placeholder="e.g. $msjones">
       <ul class="terms" id="terms"></ul>
       <label class="check"><input type="checkbox" id="jAgree"> I'm 18 or older and I agree to the Candy Lady terms.</label>
@@ -142,6 +145,25 @@
       <div class="stat"><b id="tPaid">$0.00</b><span>Paid to you</span></div>
       <div class="stat"><b id="tOrders">0</b><span>Orders with your code</span></div>
     </div>
+    <section class="card party">
+      <div class="party-pics"><img src="party-fall.jpg" alt="Harvest candle with pumpkins and fall leaves"><img src="party-winter.jpg" alt="Holiday candle on a festive table"></div>
+      <h2>🎉 Host a Candy &amp; Candle Party</h2>
+      <p class="small" style="margin-top:0">Kids pick candy and treats, grown-ups pick fresh candles and gift cards. Everyone shops online with your code, so you earn on every order, and there's no inventory to carry.</p>
+      <ol class="steps small">
+        <li><span>Pick a day and invite family and friends with the button below.</span></li>
+        <li><span>At the party, pass your phone around or show the store on a TV. Let kids build a candy bag and adults pick a scent.</span></li>
+        <li><span>Everyone orders before they leave, using your code. Holiday tip: candle gift cards make easy last-minute gifts.</span></li>
+      </ol>
+      <label for="pDate">Party day and time (optional)</label>
+      <input id="pDate" maxlength="60" placeholder="e.g. Saturday Nov 22 at 3 PM">
+      <label for="pPlace">Where (optional)</label>
+      <input id="pPlace" maxlength="80" placeholder="e.g. my house, or online">
+      <div class="row">
+        <button type="button" id="inviteBtn">💌 Send invites</button>
+        <button type="button" class="ghost" id="inviteCopy">📋 Copy invite</button>
+      </div>
+      <p id="inviteMsg" hidden></p>
+    </section>
     <section class="card">
       <h2>Recent orders</h2>
       <ul class="list" id="sales"></ul>
@@ -153,7 +175,7 @@
       <form id="payForm">
         <label for="pMethod">Pay me by</label>
         <select id="pMethod"></select>
-        <label for="pHandle">$cashtag, email or phone</label>
+        <label for="pHandle">$cashtag, email or phone (skip for store credit)</label>
         <input id="pHandle" maxlength="80">
         <button class="full ghost" type="submit">Save payout details</button>
       </form>
@@ -226,7 +248,11 @@
 
   // ----- joined / not joined -----
   function fillMethods(sel, value) {
-    sel.replaceChildren(...info.methods.map((m) => Object.assign(document.createElement("option"), { value: m, textContent: m, selected: m === value })));
+    sel.replaceChildren(...info.methods.map((m) => Object.assign(document.createElement("option"), { value: m, selected: m === value,
+      textContent: m === "Store credit" && info.credit_bonus ? `🎁 Store credit (+${info.credit_bonus}% bonus)` : m })));
+    const hint = sel.id === "jMethod" ? $("jHandle") : $("pHandle");
+    const sync = () => { const credit = sel.value === "Store credit"; hint.placeholder = credit ? "Not needed for store credit" : "e.g. $msjones"; };
+    sel.onchange = sync; sync();
   }
   function shareText() {
     const s = info.seller;
@@ -247,7 +273,9 @@
       right.append(money(x.earned), " ", Object.assign(document.createElement("span"), { className: `pill ${cls}`, textContent: txt }));
       li.append(right); return li;
     }) : [Object.assign(document.createElement("li"), { className: "muted", textContent: "No orders yet. Share your code to get started!" })]));
-    $("payNote").textContent = `We pay once you have ${money(info.min_payout)} or more ready, by ${s.payout_method || "your chosen method"}.`;
+    $("payNote").textContent = s.payout_method === "Store credit"
+      ? `Once you have ${money(info.min_payout)} or more ready, we email you a store credit code worth ${info.credit_bonus}% more.`
+      : `We pay once you have ${money(info.min_payout)} or more ready, by ${s.payout_method || "your chosen method"}.`;
     $("payouts").replaceChildren(...(info.payouts.length ? info.payouts.map((p) => {
       const li = document.createElement("li");
       li.append(`${new Date(p.paid_at).toLocaleDateString()} · ${p.method}`, Object.assign(document.createElement("strong"), { textContent: money(p.amount) }));
@@ -256,6 +284,20 @@
     fillMethods($("pMethod"), s.payout_method); $("pHandle").value = s.payout_handle || "";
   }
 
+  function inviteText() {
+    const s = info.seller, when = $("pDate").value.trim(), where = $("pPlace").value.trim();
+    return `🎉 You're invited to my Candy & Candle Party!${when ? ` ${when}.` : ""}${where ? ` Where: ${where}.` : ""}\n` +
+      `Kids pick candy and treats 🍬, grown-ups pick fresh candles 🕯️ and holiday gift cards. ` +
+      `Shop with my code ${s.code} for ${info.discount}% off` + (info.shop_url ? `: ${info.shop_url}` : ".") + `\nHope to see you there! – ${s.name}`;
+  }
+  $("inviteBtn").onclick = async () => {
+    if (navigator.share) { try { await navigator.share({ text: inviteText() }); return; } catch (e) { if (e.name === "AbortError") return; } }
+    $("inviteCopy").click();
+  };
+  $("inviteCopy").onclick = async () => {
+    try { await navigator.clipboard.writeText(inviteText()); say($("inviteMsg"), "Invite copied! Paste it in a text, Facebook or WhatsApp."); }
+    catch { say($("inviteMsg"), inviteText()); }
+  };
   $("shareBtn").onclick = async () => {
     if (navigator.share) { try { await navigator.share({ text: shareText() }); return; } catch (e) { if (e.name === "AbortError") return; } }
     $("copyBtn").click();
@@ -286,6 +328,7 @@
       `Customers who use your code get ${info.discount}% off. You earn ${info.cut}% of what they pay for the products (not shipping or tax).`,
       `Earnings are ready once the order ships. Returned or cancelled orders don't earn.`,
       `We pay when you have ${money(info.min_payout)} or more ready, by the method you choose. You're responsible for any taxes on what you earn.`,
+      `Choose store credit and you get ${info.credit_bonus}% more, as a one-time code for one order. Any amount left over doesn't carry over, and store credit can't be turned into cash.`,
       `Share honestly: no spam, no fake reviews, and no promises we don't make (like delivery dates).`,
       `Orders you place for yourself with your own code don't earn.`,
       `We can change these rates or pause a code, and we'll tell you before rates change.`,

@@ -590,6 +590,7 @@
       const st = d.settings;
       const disc = h("input", { type: "number", min: "0", max: "50", step: "0.5", value: st.candy_discount, "aria-label": "Customer discount percent" });
       const cut = h("input", { type: "number", min: "0", max: "50", step: "0.5", value: st.candy_cut, "aria-label": "Candy Lady cut percent" });
+      const bonus = h("input", { type: "number", min: "0", max: "100", step: "1", value: st.candy_credit_bonus ?? 20, "aria-label": "Store credit bonus percent" });
       const url = h("input", { type: "url", value: st.candy_url || "", placeholder: "https://...company.site/Candy-Lady-c123", "aria-label": "Candy Lady store link" });
       const joinLink = "https://cashcow-ecommerce.onrender.com/candylady.html";
       const sellerCard = (x) => h("article", { class: "card" },
@@ -599,11 +600,14 @@
         h("p", { class: "small" }, `${x.orders} order${x.orders === 1 ? "" : "s"} · owed ${money(x.owed)} · on the way ${money(x.pending)} · paid ${money(x.paid)}`),
         h("div", { class: "links" },
           x.owed > 0 ? h("button", { onclick: async (e) => {
-            if (!confirm(`Did you pay ${x.name} ${money(x.owed)} by ${x.payout_method} (${x.payout_handle || "no handle"})?`)) return;
+            const ask = x.credit != null
+              ? `Create a one-time store credit code worth ${money(x.credit)} for ${x.name} and email it to her?`
+              : `Did you pay ${x.name} ${money(x.owed)} by ${x.payout_method} (${x.payout_handle || "no handle"})?`;
+            if (!confirm(ask)) return;
             e.target.disabled = true;
             try { const r = await api(`/api/candy/admin/sellers/${x.id}/paid`, { method: "POST" }); flash(r.message); openTab("candy", true); }
             catch (err) { flash(err.message, true); e.target.disabled = false; }
-          } }, `✅ Mark ${money(x.owed)} paid`) : null,
+          } }, x.credit != null ? `🎁 Send ${money(x.credit)} store credit` : `✅ Mark ${money(x.owed)} paid`) : null,
           h("button", { class: x.status === "active" ? "danger" : "ghost", onclick: async () => {
             try { const r = await api(`/api/candy/admin/sellers/${x.id}`, { body: { status: x.status === "active" ? "paused" : "active" } }); flash(r.message); openTab("candy", true); }
             catch (err) { flash(err.message, true); }
@@ -617,10 +621,10 @@
         h("div", { class: "card" }, h("h3", {}, `Who to pay (${money(d.min_payout)} or more owed)`),
           d.to_pay.length ? h("div", { class: "list" }, d.to_pay.map(sellerCard)) : h("p", { class: "muted" }, "Nobody is due a payout right now.")),
         h("div", { class: "card" }, h("h3", {}, "Rates and store link"),
-          h("div", { class: "row" }, h("label", {}, "Customer discount %", disc), h("label", {}, "Candy Lady cut %", cut)),
+          h("div", { class: "row" }, h("label", {}, "Customer discount %", disc), h("label", {}, "Candy Lady cut %", cut), h("label", {}, "Store credit bonus %", bonus)),
           h("label", {}, "Link to your Candy Lady products in Ecwid (shared with each code)", url),
           h("button", { style: "margin-top:10px", onclick: async () => {
-            try { const r = await api("/api/candy/admin/settings", { body: { discount: Number(disc.value), cut: Number(cut.value), url: url.value.trim() } }); flash(r.message); }
+            try { const r = await api("/api/candy/admin/settings", { body: { discount: Number(disc.value), cut: Number(cut.value), url: url.value.trim(), bonus: Number(bonus.value) } }); flash(r.message); }
             catch (err) { flash(err.message, true); }
           } }, "Save")),
         h("h2", {}, `All Candy Ladies (${d.sellers.length})`),
