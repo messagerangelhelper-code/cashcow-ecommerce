@@ -313,13 +313,21 @@
           p.image ? h("img", { src: p.image, alt: "", loading: "lazy" }) : h("div", {}),
           h("div", {}, h("h3", {}, p.name), h("p", { class: "muted small" }, p.sku || "No SKU", " · ",
             p.supplier ? h("span", { class: "pill" }, p.supplier) : h("span", { class: "pill gold" }, "No supplier rule")),
+            p.ribbon ? h("p", { class: "small", style: "margin:4px 0 0" }, h("span", { class: "pill good" }, p.ribbon)) : null,
             h("div", { class: "row" }, h("label", {}, "Price", price), h("label", {}, "Stock", qty)),
             h("div", { class: "row" }, h("label", { style: "display:flex;gap:8px;align-items:center" }, on, "For sale"), save)));
       });
       const pager = h("div", { class: "links" },
         prodOffset > 0 ? h("button", { class: "ghost", onclick: () => { prodOffset = Math.max(0, prodOffset - 50); openTab("products", true); } }, "← Previous") : null,
         prodOffset + 50 < d.total ? h("button", { class: "ghost", onclick: () => { prodOffset += 50; openTab("products", true); } }, "Next →") : null);
+      const ribBtn = h("button", { class: "ghost", onclick: async () => {
+        ribBtn.disabled = true; ribBtn.textContent = "Adding ribbons...";
+        try { const r = await api("/api/ecom/ribbons", { method: "POST" }); flash(r.message); openTab("products", true); }
+        catch (err) { flash(err.message, true); ribBtn.disabled = false; ribBtn.textContent = "📍 Add \"Ships from\" ribbons now"; }
+      } }, "📍 Add \"Ships from\" ribbons now");
       box.replaceChildren(h("div", { class: "toolbar" }, search, h("button", { onclick: go }, "Search")),
+        h("div", { class: "card" }, h("p", { class: "small", style: "margin:0 0 8px" },
+          "Each product's picture shows where it ships from, like \"📍 From Cranbury, NJ 08512\", so nearby customers know it arrives fast. It comes from the product's supplier warehouse and updates every hour on its own."), ribBtn),
         h("p", { class: "muted small" }, `${d.total} product${d.total === 1 ? "" : "s"}. Add new products and photos in Ecwid; change price, stock and on/off here.`),
         h("div", { class: "grid2" }, cards.length ? cards : [h("p", { class: "empty" }, "No products found.")]), pager);
     } catch (err) { failed(box, err, () => openTab("products", true)); }
