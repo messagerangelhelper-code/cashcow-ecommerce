@@ -339,7 +339,9 @@
           return h("div", { class: "section-tile" }, h("p", { style: "margin:0;font-weight:700" }, `${sec.icon} ${sec.name}`),
             h("p", { class: "muted small", style: "margin:4px 0 8px" }, sec.shelves.join(" · ")), b);
         }))) : null;
-      box.replaceChildren(h("div", { class: "toolbar" }, search, h("button", { onclick: go }, "Search")), sectionCard,
+      let cjCard = null;
+      try { cjCard = await cjFiller(); } catch { /* optional */ }
+      box.replaceChildren(h("div", { class: "toolbar" }, search, h("button", { onclick: go }, "Search")), sectionCard, cjCard,
         h("div", { class: "card" }, h("p", { class: "small", style: "margin:0 0 8px" },
           "Each product's picture shows where it ships from, like \"📍 From Cranbury, NJ 08512\", so nearby customers know it arrives fast. It comes from the product's supplier warehouse and updates every hour on its own."), ribBtn),
         h("p", { class: "muted small" }, `${d.total} product${d.total === 1 ? "" : "s"}. Add new products and photos in Ecwid; change price, stock and on/off here.`),
@@ -631,5 +633,84 @@
         h("h2", {}, `All Candy Ladies (${d.sellers.length})`),
         h("div", { class: "list" }, d.sellers.length ? d.sellers.map(sellerCard) : [h("p", { class: "empty" }, "No Candy Ladies yet. Share the join page!")]));
     } catch (err) { failed(box, err, () => openTab("candy", true)); }
+  }
+
+  // ---------- Fill shelves from CJ ----------
+  async function cjFiller() {
+    const st = await api("/api/ecom/cj");
+    if (!st.ready) {
+      return h("div", { class: "card setup" }, h("h3", {}, "🛒 Fill shelves from CJ automatically"),
+        h("ol", {}, h("li", {}, "Sign up free at cjdropshipping.com and copy your API key (account → API)."),
+          h("li", {}, "Render → cashcow-reviews-api → Environment: add CJ_API_KEY with the key."),
+          h("li", {}, "Save, wait a minute, and reload this page.")));
+    }
+    const shelf = h("select", { "aria-label": "Shelf" }, st.shelves.map((x) => h("option", { value: x.path }, `${x.icon} ${x.section} › ${x.shelf}`)));
+    const kw = h("input", { placeholder: "Search words (optional)", "aria-label": "Search words" });
+    const mk = h("input", { type: "number", min: "1.1", max: "10", step: "0.1", value: st.markup, "aria-label": "Markup" });
+    const out = h("div");
+    const log = h("div", { class: "small", "aria-live": "polite" });
+    async function importItems(path, items, onEach) {
+      let added = 0;
+      for (let i = 0; i < items.length; i += 3) {
+        const batch = items.slice(i, i + 3);
+        try {
+          const r = await api("/api/ecom/cj/import", { body: { shelf: path, items: batch.map((x) => ({ pid: x.pid, price: x.price })) } });
+          r.results.forEach((x) => onEach(x)); added += r.added;
+        } catch (err) { batch.forEach((x) => onEach({ pid: x.pid, ok: false, message: err.message })); }
+      }
+      return added;
+    }
+    async function doSearch() {
+      out.replaceChildren(h("p", { class: "muted" }, "Searching CJ's US warehouses... (about 5 seconds)"));
+      try {
+        const d = await api("/api/ecom/cj/search", { body: { shelf: shelf.value, keyword: kw.value, markup: Number(mk.value), limit: 12 } });
+        if (!d.items.length) { out.replaceChildren(h("p", { class: "muted" }, "Nothing in US stock for that. Try other search words.")); return; }
+        let picked = 0;
+        const rows = d.items.map((x) => {
+          const on = h("input", { type: "checkbox", checked: !x.in_store && picked++ < 6, disabled: x.in_store, style: "width:auto" });
+          const pr = h("input", { type: "number", step: "0.01", min: String(x.cost), value: x.price, "aria-label": `Price for ${x.name}`, style: "max-width:110px" });
+          const status = h("span", { class: "small" });
+          return { x, on, pr, status, el: h("label", { class: "card prod", style: "cursor:pointer" },
+            x.image ? h("img", { src: x.image, alt: "", loading: "lazy" }) : h("div"),
+            h("div", {}, h("p", { style: "margin:0;font-weight:600" }, on, " ", x.name),
+              h("p", { class: "muted small", style: "margin:4px 0" }, `CJ cost $${x.cost.toFixed(2)} · ${x.us_stock} in US stock`, x.in_store ? " · already in your store" : ""),
+              h("div", { class: "row", style: "align-items:center" }, h("span", { class: "small" }, "Your price $"), pr, status))) };
+        });
+        const add = h("button", { onclick: async () => {
+          const chosen = rows.filter((r) => r.on.checked);
+          if (!chosen.length) { flash("Tick at least one product.", true); return; }
+          add.disabled = true; add.textContent = `Adding ${chosen.length}...`;
+          const n = await importItems(shelf.value, chosen.map((r) => ({ pid: r.x.pid, price: Number(r.pr.value) })), (res) => {
+            const r = rows.find((y) => y.x.pid === res.pid); if (!r) return;
+            r.status.textContent = res.ok ? " ✅ Added" : ` ⚠️ ${res.message}`; r.on.checked = false; r.on.disabled = res.ok;
+          });
+          flash(`${n} product${n === 1 ? "" : "s"} added to ${shelf.value}.`); add.disabled = false; add.textContent = "Add ticked products";
+          delete loaded.overview;
+        } }, "Add ticked products");
+        out.replaceChildren(h("p", { class: "muted small" }, "Ticked items go live in your store with photo, description, shelf and ribbon. Change any price first if you like."),
+          h("div", { class: "grid2" }, rows.map((r) => r.el)), h("div", { class: "links" }, add));
+      } catch (err) { out.replaceChildren(h("p", { class: "error" }, err.message)); }
+    }
+    const auto = h("button", { class: "ghost", onclick: async () => {
+      if (!confirm(`Fill every shelf automatically with up to 3 US-stock CJ products each, priced at cost × ${mk.value}? This takes a few minutes; keep this page open.`)) return;
+      auto.disabled = true; log.replaceChildren();
+      let total = 0;
+      for (const x of st.shelves) {
+        const line = h("p", { style: "margin:2px 0" }, `${x.icon} ${x.shelf}: searching...`); log.append(line);
+        try {
+          const d = await api("/api/ecom/cj/search", { body: { shelf: x.path, markup: Number(mk.value), limit: 6 } });
+          const pick = d.items.filter((i) => !i.in_store).slice(0, 3);
+          if (!pick.length) { line.textContent = `${x.icon} ${x.shelf}: nothing new in US stock`; continue; }
+          const n = await importItems(x.path, pick, () => {});
+          total += n; line.textContent = `${x.icon} ${x.shelf}: ✅ ${n} added`;
+        } catch (err) { line.textContent = `${x.icon} ${x.shelf}: ⚠️ ${err.message}`; }
+      }
+      flash(`Done: ${total} products added across your shelves.`); auto.disabled = false; delete loaded.overview;
+    } }, "⚡ Auto-fill every shelf (3 each)");
+    return h("div", { class: "card" }, h("h3", {}, "🛒 Fill shelves from CJ"),
+      h("p", { class: "muted small" }, "Finds products stocked in CJ's US warehouses for a shelf, prices them with your markup (rounded to .99), and adds the ones you tick."),
+      h("label", {}, "Shelf", shelf),
+      h("div", { class: "row" }, h("label", {}, "Search words", kw), h("label", {}, "Markup (× CJ cost)", mk)),
+      h("div", { class: "links" }, h("button", { onclick: doSearch }, "🔍 Find products"), auto), log, out);
   }
 })();
