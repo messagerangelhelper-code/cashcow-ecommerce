@@ -1,3 +1,4 @@
+const SUPPLIER_SITES = { CROV: "https://www.crov.com", CJ: "https://cjdropshipping.com/myCJ.html", SPOCKET: "https://app.spocket.co", SYNCEE: "https://syncee.com", DOBA: "https://www.doba.com" };
 // CashCow eCommerce control dashboard: orders from the Ecwid store, matched by ZIP code to the
 // nearest supplier warehouse and local logistics hub, grouped into delivery routes.
 (function () {
@@ -522,7 +523,7 @@
                 h("button", { class: "ghost", onclick: async () => {
                   try { await navigator.clipboard.writeText(o.ship_to || o.address); flash("Address copied."); } catch { flash("Couldn't copy. Press and hold the address to copy it.", true); }
                 } }, "📋 Copy address"),
-                g.supplier.toUpperCase() === "CROV" ? h("a", { href: "https://www.crov.com", target: "_blank", rel: "noopener" }, "Open CROV") : null),
+                SUPPLIER_SITES[g.supplier.toUpperCase()] ? h("a", { href: SUPPLIER_SITES[g.supplier.toUpperCase()], target: "_blank", rel: "noopener" }, `Open ${g.supplier}`) : null),
               h("div", { class: "row" }, ref, h("button", { onclick: async (e) => {
                 e.target.disabled = true;
                 try { await api(`/api/ecom/orders/${encodeURIComponent(o.id)}/ordered`, { body: { supplier: g.supplier, ref: ref.value } });
