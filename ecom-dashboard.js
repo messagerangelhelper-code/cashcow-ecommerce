@@ -75,7 +75,7 @@ const SUPPLIER_SITES = { CROV: "https://www.crov.com", CJ: "https://cjdropshippi
   sb.auth.getSession().then(({ data }) => { session = data.session; showSignedIn(); });
 
   // ---------- Tabs ----------
-  const TABS = { overview: loadOverview, orders: loadOrders, routes: loadRoutes, warehouses: loadWarehouses, products: loadProducts, zip: loadZip, ask: loadAsk, toorder: loadToOrder, auto: loadAuto, candy: loadCandy };
+  const TABS = { overview: loadOverview, orders: loadOrders, routes: loadRoutes, warehouses: loadWarehouses, products: loadProducts, zip: loadZip, ask: loadAsk, toorder: loadToOrder, auto: loadAuto, candy: loadCandy, marketing: loadMarketing };
   function openTab(name, force) {
     if (!TABS[name]) name = "overview";
     document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
@@ -637,6 +637,70 @@ const SUPPLIER_SITES = { CROV: "https://www.crov.com", CJ: "https://cjdropshippi
         h("h2", {}, `All Candy Ladies (${d.sellers.length})`),
         h("div", { class: "list" }, d.sellers.length ? d.sellers.map(sellerCard) : [h("p", { class: "empty" }, "No Candy Ladies yet. Share the join page!")]));
     } catch (err) { failed(box, err, () => openTab("candy", true)); }
+  }
+
+  // ---------- Marketing report ----------
+  async function loadMarketing(box) {
+    loading(box);
+    try {
+      const d = await api("/api/ecom/marketing");
+      const rep = d.report;
+      const list = (title, rows, fmt) => h("div", {}, h("h4", { style: "margin:12px 0 4px" }, title),
+        rows && rows.length ? h("ol", { class: "stops", style: "margin-top:0" }, rows.map(fmt)) : h("p", { class: "muted small", style: "margin:0" }, "Nothing yet."));
+      const trend = (now, before) => {
+        if (!before) return "";
+        const pct = Math.round(((now - before) / before) * 100);
+        return pct === 0 ? " (same as last week)" : ` (${pct > 0 ? "▲" : "▼"} ${Math.abs(pct)}% vs last week)`;
+      };
+      const appCard = (a) => h("details", { class: "card" },
+        h("summary", { style: "cursor:pointer;font-weight:700" }, `${a.app} · ${a.visits} visit${a.visits === 1 ? "" : "s"}`,
+          a.public.some((p) => p.new) ? h("span", { class: "pill gold", style: "margin-left:8px" }, (() => { const n = a.public.filter((p) => p.new).length; return `${n} new search${n === 1 ? "" : "es"}`; })()) : null),
+        h("p", { class: "small" }, `${a.visits} visits${trend(a.visits, a.visits_before)} · ${a.searches} searches on your site`),
+        !a.visits && !a.visits_before ? h("p", { class: "muted small" }, "No visits recorded yet. Check the tracking line is on this app's page (see below).") : null,
+        list("🔎 What people search for (DuckDuckGo and Bing)", a.public, (p) => h("li", {}, p.term, p.new ? h("span", { class: "pill gold", style: "margin-left:6px" }, "NEW") : null)),
+        list("🏠 What visitors typed in your search box", a.terms, ([t, n]) => h("li", {}, `${t} · ${n}×`)),
+        list("👣 Where visitors came from", a.sources, ([t, n]) => h("li", {}, `${t} · ${n}`)),
+        list("📄 Most-visited pages", a.pages, ([t, n]) => h("li", {}, `${t} · ${n}`)));
+      const buildBtn = h("button", { onclick: async () => {
+        buildBtn.disabled = true;
+        try { const r = await api("/api/ecom/marketing/run", { method: "POST" }); flash(r.message); }
+        catch (err) { flash(err.message, true); buildBtn.disabled = false; }
+      } }, "▶️ Build report now");
+      const appRow = (a) => {
+        const name = h("input", { value: a.name || "", "aria-label": "App name", placeholder: "App name" });
+        const hosts = h("input", { value: a.hosts || "", "aria-label": "Web addresses", placeholder: "myapp.onrender.com, myapp.com" });
+        const seeds = h("input", { value: a.seeds || "", "aria-label": "Keywords", placeholder: "up to 5 keywords, with commas" });
+        return h("div", { class: "section-tile" },
+          h("label", {}, "Name", name), h("label", {}, "Web addresses (commas between)", hosts), h("label", {}, "Keywords people would search (commas between)", seeds),
+          h("div", { class: "links" },
+            h("button", { onclick: async () => {
+              try { await api("/api/ecom/marketing/apps", { body: { id: a.id || "", name: name.value, hosts: hosts.value, seeds: seeds.value, active: true } }); flash("Saved. It's in the next report."); openTab("marketing", true); }
+              catch (err) { flash(err.message, true); }
+            } }, "Save"),
+            a.id ? h("button", { class: "danger", onclick: async () => {
+              if (!confirm(`Stop reporting on ${a.name}?`)) return;
+              try { await api(`/api/ecom/marketing/apps/${a.id}/delete`, { method: "POST" }); flash("Removed."); openTab("marketing", true); }
+              catch (err) { flash(err.message, true); }
+            } }, "Remove") : null));
+      };
+      const addBox = h("div", {});
+      box.replaceChildren(
+        h("div", { class: "card" }, h("h2", {}, "📈 Marketing report"),
+          h("p", { class: "small" }, "Each Monday morning: what people search for around each app, where your visitors come from, and what they look for on your sites. Free, no sign-ups. Visitors stay anonymous."),
+          h("p", { class: "muted small" }, rep ? `Week ${rep.week} · built ${new Date(rep.built_at).toLocaleString()}` : "No report yet. Tap Build report now (takes a few minutes).",
+            d.building ? " · building now…" : "", d.weekly ? "" : " · weekly report is off in ⚙️ Automation"),
+          h("div", { class: "links" }, buildBtn, h("button", { class: "ghost", onclick: () => openTab("marketing", true) }, "🔄 Refresh"))),
+        rep ? h("div", { class: "list" }, rep.apps.map(appCard)) : null,
+        h("div", { class: "card" }, h("h2", {}, "Turn on visit tracking"),
+          h("p", { class: "small" }, "Add this one line to each app's page, just above </head>. Do it once per app."),
+          h("pre", { class: "shipto" }, d.snippet),
+          h("div", { class: "links" }, h("button", { class: "ghost", onclick: async () => { try { await navigator.clipboard.writeText(d.snippet); flash("Line copied."); } catch { flash("Press and hold the line to copy it.", true); } } }, "📋 Copy line")),
+          h("p", { class: "muted small" }, "Where it goes: in each app's GitHub repo, open index.html, tap the pencil, paste the line above </head>, then commit. The Ecwid store page can't take it, so its report shows search words only.")),
+        h("div", { class: "card" }, h("h2", {}, `Apps in the report (${d.apps.length})`),
+          h("div", { class: "grid2" }, d.apps.map(appRow)),
+          addBox,
+          h("button", { class: "ghost", style: "margin-top:10px", onclick: (e) => { e.target.hidden = true; addBox.replaceChildren(appRow({})); } }, "➕ Add an app")));
+    } catch (err) { failed(box, err, () => openTab("marketing", true)); }
   }
 
   // ---------- Fill shelves from CJ ----------
