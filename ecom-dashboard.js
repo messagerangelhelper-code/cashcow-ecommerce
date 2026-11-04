@@ -652,15 +652,29 @@ const SUPPLIER_SITES = { CROV: "https://www.crov.com", CJ: "https://cjdropshippi
         const pct = Math.round(((now - before) / before) * 100);
         return pct === 0 ? " (same as last week)" : ` (${pct > 0 ? "▲" : "▼"} ${Math.abs(pct)}% vs last week)`;
       };
+      const seoPill = (seo) => !seo || seo.score == null ? null
+        : h("span", { class: seo.score >= 80 ? "pill good" : seo.score >= 60 ? "pill gold" : "pill bad", style: "margin-left:8px" }, `SEO ${seo.score}`);
+      const seoBox = (seo) => {
+        if (!seo || !seo.url) return null;
+        if (seo.error) return h("div", {}, h("h4", { style: "margin:12px 0 4px" }, "🩺 SEO check"), h("p", { class: "muted small", style: "margin:0" }, seo.error));
+        const fix = seo.checks.filter((c) => !c.ok), good = seo.checks.filter((c) => c.ok);
+        return h("div", {},
+          h("h4", { style: "margin:12px 0 4px" }, `🩺 SEO check · ${seo.score}/100`),
+          h("p", { class: "muted small", style: "margin:0 0 6px" }, h("a", { href: seo.url, target: "_blank", rel: "noopener" }, seo.url)),
+          fix.length ? h("ol", { class: "stops", style: "margin-top:0" }, fix.map((c) => h("li", {}, h("strong", {}, `${c.label}: `), `${c.found}. `, h("span", { class: "muted" }, c.tip))))
+            : h("p", { class: "small" }, "Everything checked looks good. 🎉"),
+          good.length ? h("p", { class: "muted small" }, "✓ Good: ", good.map((c) => c.label).join(", ")) : null);
+      };
       const appCard = (a) => h("details", { class: "card" },
-        h("summary", { style: "cursor:pointer;font-weight:700" }, `${a.app} · ${a.visits} visit${a.visits === 1 ? "" : "s"}`,
+        h("summary", { style: "cursor:pointer;font-weight:700" }, `${a.app} · ${a.visits} visit${a.visits === 1 ? "" : "s"}`, seoPill(a.seo),
           a.public.some((p) => p.new) ? h("span", { class: "pill gold", style: "margin-left:8px" }, (() => { const n = a.public.filter((p) => p.new).length; return `${n} new search${n === 1 ? "" : "es"}`; })()) : null),
         h("p", { class: "small" }, `${a.visits} visits${trend(a.visits, a.visits_before)} · ${a.searches} searches on your site`),
         !a.visits && !a.visits_before ? h("p", { class: "muted small" }, "No visits recorded yet. Check the tracking line is on this app's page (see below).") : null,
         list("🔎 What people search for (DuckDuckGo and Bing)", a.public, (p) => h("li", {}, p.term, p.new ? h("span", { class: "pill gold", style: "margin-left:6px" }, "NEW") : null)),
         list("🏠 What visitors typed in your search box", a.terms, ([t, n]) => h("li", {}, `${t} · ${n}×`)),
         list("👣 Where visitors came from", a.sources, ([t, n]) => h("li", {}, `${t} · ${n}`)),
-        list("📄 Most-visited pages", a.pages, ([t, n]) => h("li", {}, `${t} · ${n}`)));
+        list("📄 Most-visited pages", a.pages, ([t, n]) => h("li", {}, `${t} · ${n}`)),
+        seoBox(a.seo));
       const buildBtn = h("button", { onclick: async () => {
         buildBtn.disabled = true;
         try { const r = await api("/api/ecom/marketing/run", { method: "POST" }); flash(r.message); }
@@ -686,7 +700,7 @@ const SUPPLIER_SITES = { CROV: "https://www.crov.com", CJ: "https://cjdropshippi
       const addBox = h("div", {});
       box.replaceChildren(
         h("div", { class: "card" }, h("h2", {}, "📈 Marketing report"),
-          h("p", { class: "small" }, "Each Monday morning: what people search for around each app, where your visitors come from, and what they look for on your sites. Free, no sign-ups. Visitors stay anonymous."),
+          h("p", { class: "small" }, "Each Monday morning: what people search for around each app, where your visitors come from, what they look for on your sites, and an SEO check of each app's page with what to fix. Free, no sign-ups. Visitors stay anonymous."),
           h("p", { class: "muted small" }, rep ? `Week ${rep.week} · built ${new Date(rep.built_at).toLocaleString()}` : "No report yet. Tap Build report now (takes a few minutes).",
             d.building ? " · building now…" : "", d.weekly ? "" : " · weekly report is off in ⚙️ Automation"),
           h("div", { class: "links" }, buildBtn, h("button", { class: "ghost", onclick: () => openTab("marketing", true) }, "🔄 Refresh"))),
